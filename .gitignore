@@ -1,0 +1,38 @@
+# ---- Secrets: never commit (DB passwords, Redis URL, admin key, Gemini key) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Python (coupon-service) ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Node (web, legacy api) ----
+node_modules/
+dist/
+build/
+.vite/
+npm-debug.log*
+yarn-error.log*
+
+# ---- Editors / OS ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# ---- Logs, temp, local data ----
+*.log
+tmp/
+.cache/
+*.sqlite
+
+*.pdf

@@ -1,0 +1,90 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: semicon-coupon-db
+    environment:
+      POSTGRES_USER: semicon
+      POSTGRES_PASSWORD: semicon
+      POSTGRES_DB: semicon_coupons
+    ports:
+      - "5434:5432"
+    volumes:
+      - semicon_coupon_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U semicon -d semicon_coupons"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./api
+    container_name: semicon-coupon-api
+    environment:
+      PORT: 4100
+      DATABASE_URL: ${DATABASE_URL:-${DB_NAME:-postgres://semicon:semicon@db:5432/semicon_coupons}}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-semicon-admin-dev-key}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      OFFER_MODE: ${OFFER_MODE:-flexible}
+    ports:
+      - "4100:4100"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---- New FastAPI coupon service: local Postgres + Redis (fast; matches the design's "Mode A") ----
+  postgres:
+    image: postgres:16-alpine
+    container_name: semicon-cs-postgres
+    environment:
+      POSTGRES_USER: semicon
+      POSTGRES_PASSWORD: semicon
+      POSTGRES_DB: coupons
+    ports:
+      - "5435:5432"
+    volumes:
+      - semicon_cs_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U semicon -d coupons"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: semicon-cs-redis
+    ports:
+      - "6380:6379"
+
+  coupon-service:
+    build: ./coupon-service
+    container_name: semicon-coupon-service
+    environment:
+      # defaults are the local containers; set COUPON_DATABASE_URL / COUPON_REDIS_URL in .env to use Neon / Upstash
+      DATABASE_URL: ${COUPON_DATABASE_URL:-postgresql://semicon:semicon@postgres:5432/coupons}
+      REDIS_URL: ${COUPON_REDIS_URL:-redis://redis:6379/0}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-semicon-admin-dev-key}
+      OFFER_MODE: ${OFFER_MODE:-flexible}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    container_name: semicon-coupon-web
+    ports:
+      - "5180:80"
+    depends_on:
+      - coupon-service
+    restart: unless-stopped
+
+volumes:
+  semicon_coupon_pgdata:
+  semicon_cs_pgdata:
