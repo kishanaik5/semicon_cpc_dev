@@ -15,7 +15,7 @@ python -m scripts.gate_test                          # 100 parallel reserves on 
 python -m scripts.simulate_traffic                   # fill the dashboard
 ```
 Config comes from the repo-root `.env`: `NEON_DB_URL` (or `DATABASE_URL`), `REDIS_URL`, `ADMIN_API_KEY`, `OFFER_MODE` (strict|flexible).
-Tables live in their own schema `coupon_svc`, so they never collide with the Node app's tables.
+Tables live in their own schema `coupon_svc`.
 
 ## How it works (explain this in the demo)
 | Step | Endpoint | What happens |
@@ -60,7 +60,6 @@ docker compose up -d --build coupon-service web      # UI: http://localhost:5180
 ```
 Admin key: `ADMIN_API_KEY` from `.env`; open `http://localhost:5180/admin?adminKey=<key>` once.
 `OFFER_MODE` defaults to `flexible` in docker-compose (so the UI can create any combination); set `strict` to show the 1:1 mapping rejection.
-The original Node `api/` is no longer used by the UI (its container can stay stopped).
 
 UI vocabulary → engine: FIXED/UNIQUE/USER_PIN/SIGNUP/REFERRAL = `fixed/unique/user_pin/signup/referral` campaigns;
 PERCENT_DISCOUNT/FIXED_DISCOUNT/EXTRA_HOURS/AI_CREDITS/CUSTOM = `percent/flat/sub_hours/ai_credits/custom`;

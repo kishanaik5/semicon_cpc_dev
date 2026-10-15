@@ -1,38 +1,5 @@
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: semicon-coupon-db
-    environment:
-      POSTGRES_USER: semicon
-      POSTGRES_PASSWORD: semicon
-      POSTGRES_DB: semicon_coupons
-    ports:
-      - "5434:5432"
-    volumes:
-      - semicon_coupon_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U semicon -d semicon_coupons"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  api:
-    build: ./api
-    container_name: semicon-coupon-api
-    environment:
-      PORT: 4100
-      DATABASE_URL: ${DATABASE_URL:-${DB_NAME:-postgres://semicon:semicon@db:5432/semicon_coupons}}
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-semicon-admin-dev-key}
-      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
-      OFFER_MODE: ${OFFER_MODE:-flexible}
-    ports:
-      - "4100:4100"
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # ---- New FastAPI coupon service: local Postgres + Redis (fast; matches the design's "Mode A") ----
+  # Local data stores for the coupon service (fast; the design's "Mode A")
   postgres:
     image: postgres:16-alpine
     container_name: semicon-cs-postgres
@@ -86,5 +53,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  semicon_coupon_pgdata:
   semicon_cs_pgdata:

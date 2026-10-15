@@ -1,4 +1,4 @@
-/** Account types shown in the UI. Keep in sync with api/src/constants.js. */
+/** Account types shown in the UI (the backend stores them as plain strings on users.account_type). */
 export const ACCOUNT_TYPES = [
   { value: 'INDIVIDUAL', label: 'Individual', plural: 'Individuals' },
   { value: 'ORGANIZATION', label: 'Organization', plural: 'Organizations' },
