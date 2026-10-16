@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     rate_limit_max: int = 10              # apply attempts ...
     rate_limit_window_s: int = 600        # ... per 10 minutes, per user and per IP
     cache_ttl_s: int = 60
+    db_pool_size: int = 5                 # connections per worker process
+    db_pool_overflow: int = 5
     worker_interval_s: int = 30
     code_style: str = "words"            # words (demo: SL-MANGO-TIGER-42) | random (SL-K7M2-PQ4X)
     code_length: int = 8                  # random characters in generated codes (the PDF suggests 10-12)

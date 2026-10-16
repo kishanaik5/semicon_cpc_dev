@@ -13,7 +13,7 @@ from sqlalchemy import text
 from . import api, admin, cache, compat
 from . import service as svc
 from .config import settings
-from .db import SessionLocal, init_db
+from .db import SessionLocal, engine, init_db
 
 log = logging.getLogger("coupon")
 
@@ -39,7 +39,7 @@ async def bootstrap_admin():
         exists = (await s.execute(text("SELECT 1 FROM admin_users WHERE username=:u"),
                                   {"u": settings.admin_username.strip().lower()})).first()
         if not exists:
-            await s.execute(text("INSERT INTO admin_users(username,password_hash) VALUES (:u,:h)"),
+            await s.execute(text("INSERT INTO admin_users(username,password_hash) VALUES (:u,:h) ON CONFLICT (username) DO NOTHING"),
                             {"u": settings.admin_username.strip().lower(), "h": svc.ph.hash(settings.admin_password)})
             await s.commit()
             log.info("bootstrap admin '%s' created", settings.admin_username)
@@ -48,28 +48,35 @@ async def bootstrap_admin():
 async def seed_on_start():
     """Seed demo data once, when the database is empty (opt-in via SEED_ON_START)."""
     try:
-        async with SessionLocal() as s:
-            empty = not (await s.execute(text("SELECT 1 FROM campaigns LIMIT 1"))).first()
-        if not empty:
-            return
-        from scripts import seed
-        await seed.main()
-        if settings.seed_history_on_start:
-            from scripts import seed_history
-            port = os.environ.get("PORT", "8000")
-            for _ in range(30):                      # history goes through the HTTP API, so wait for it
-                try:
-                    await cache.r.ping()
-                    import httpx
-                    async with httpx.AsyncClient() as c:
-                        if (await c.get(f"http://127.0.0.1:{port}/health")).status_code == 200:
-                            break
-                except Exception:  # noqa: BLE001
-                    pass
-                await asyncio.sleep(1)
-            await seed_history.main(f"http://127.0.0.1:{port}")
+        async with engine.connect() as lock:                     # with several workers only one may seed
+            if not (await lock.execute(text("SELECT pg_try_advisory_lock(727002)"))).scalar():
+                return
+            await _seed_if_empty()
     except Exception as e:  # noqa: BLE001
         log.warning("seed on start failed: %s", e)
+
+
+async def _seed_if_empty():
+    async with SessionLocal() as s:
+        empty = not (await s.execute(text("SELECT 1 FROM campaigns LIMIT 1"))).first()
+    if not empty:
+        return
+    from scripts import seed
+    await seed.main()
+    if settings.seed_history_on_start:
+        from scripts import seed_history
+        port = os.environ.get("PORT", "8000")
+        for _ in range(30):                      # history goes through the HTTP API, so wait for it
+            try:
+                await cache.r.ping()
+                import httpx
+                async with httpx.AsyncClient() as c:
+                    if (await c.get(f"http://127.0.0.1:{port}/health")).status_code == 200:
+                        break
+            except Exception:  # noqa: BLE001
+                pass
+            await asyncio.sleep(1)
+        await seed_history.main(f"http://127.0.0.1:{port}")
 
 
 @asynccontextmanager

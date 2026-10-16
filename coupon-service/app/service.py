@@ -325,21 +325,7 @@ async def _reserve_tx(d: dict, user_id: int, order_id: str, subtotal: Decimal) -
                 raise Reject("ONE_PER_ORDER", status=409)
             # 3. per-user limit + first purchase
             await check_user_rules(s, d, user_id)
-            # 4. global cap: conditional UPDATE, atomic even with 100 parallel requests
-            ok = (await s.execute(text(
-                "UPDATE campaigns SET redeemed_count = redeemed_count + 1 "
-                "WHERE id=:c AND status='active' AND (max_redemptions IS NULL OR redeemed_count < max_redemptions) "
-                "RETURNING id"), {"c": d["campaign_id"]})).first()
-            if not ok:
-                raise Reject("EXHAUSTED")
-            # 5. code-level cap (unique codes: max_uses = 1)
-            ok = (await s.execute(text(
-                "UPDATE coupon_codes SET used_count = used_count + 1 "
-                "WHERE id=:k AND status='active' AND (max_uses IS NULL OR used_count < max_uses) RETURNING id"),
-                {"k": d["code_id"]})).first()
-            if not ok:
-                raise Reject("ALREADY_USED")
-            # 6. record the reservation
+            # 4. record the reservation first (no hot locks taken yet)
             await s.execute(text(
                 "INSERT INTO orders(id,user_id,status) VALUES (:o,:u,'pending') ON CONFLICT (id) DO NOTHING"),
                 {"o": order_id, "u": user_id})
@@ -350,6 +336,19 @@ async def _reserve_tx(d: dict, user_id: int, order_id: str, subtotal: Decimal) -
                  "sub": subtotal, "disc": discount, "until": until})).scalar_one()
             await log_event("reserved", campaign_id=d["campaign_id"], code_id=d["code_id"], user_id=user_id,
                             payload={"order_id": order_id, "discount": float(discount), "code": d["code"]}, session=s)
+            # 5. the caps, LAST and in one statement, so the hot campaign row is locked for as short as possible.
+            #    Conditional UPDATEs are atomic: 100 parallel requests on a cap of 10 give exactly 10.
+            ok = (await s.execute(text(
+                "WITH c AS (UPDATE campaigns SET redeemed_count = redeemed_count + 1 "
+                "  WHERE id=:c AND status='active' AND (max_redemptions IS NULL OR redeemed_count < max_redemptions) RETURNING 1), "
+                "k AS (UPDATE coupon_codes SET used_count = used_count + 1 "
+                "  WHERE id=:k AND status='active' AND (max_uses IS NULL OR used_count < max_uses) RETURNING 1) "
+                "SELECT (SELECT count(*) FROM c) AS campaign_ok, (SELECT count(*) FROM k) AS code_ok"),
+                {"c": d["campaign_id"], "k": d["code_id"]})).mappings().one()
+            if not ok["campaign_ok"]:
+                raise Reject("EXHAUSTED")
+            if not ok["code_ok"]:
+                raise Reject("ALREADY_USED")
             await s.commit()
         except IntegrityError:                 # unique index one_coupon_per_order won a race
             await s.rollback()

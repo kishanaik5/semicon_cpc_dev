@@ -34,6 +34,7 @@ services:
       OFFER_MODE: ${OFFER_MODE:-flexible}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-4}
     ports:
       - "8000:8000"
     depends_on:

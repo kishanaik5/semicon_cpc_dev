@@ -17,7 +17,7 @@ if _host not in ("localhost", "127.0.0.1", "postgres") and not _host.endswith(".
     _args["ssl"] = ctx
 
 engine = create_async_engine(
-    settings.database_url, pool_size=5, max_overflow=2, pool_recycle=240, pool_timeout=60, connect_args=_args
+    settings.database_url, pool_size=settings.db_pool_size, max_overflow=settings.db_pool_overflow, pool_recycle=240, pool_timeout=60, connect_args=_args
 )
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -26,6 +26,7 @@ async def init_db() -> None:
     from .models import Base
 
     async with engine.begin() as conn:
+        await conn.execute(text("SELECT pg_advisory_xact_lock(727001)"))   # several workers start at once: one sets up the schema
         await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}"))
         await conn.run_sync(Base.metadata.create_all)
         for stmt in _ADD_COLUMNS:      # create_all never alters existing tables

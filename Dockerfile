@@ -22,4 +22,4 @@ COPY --from=web /web/dist ./static
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 # $PORT is injected by Railway / Spaces; default for local runs
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --proxy-headers --forwarded-allow-ips='*'"]

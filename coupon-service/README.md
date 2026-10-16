@@ -91,3 +91,10 @@ The key stays on the server (sent in a request header). Limits: 12 questions/min
 * Windows PowerShell: `.\coupon-service\reset_demo.ps1 [flexible|strict]`
 Both drop the coupon schema, flush Redis, rebuild, and re-seed the 5 coupons plus 30 days of history. The admin account is removed too, so recreate it:
 `docker compose exec coupon-service python -m scripts.create_admin --username <name>`
+
+## One-command local deployment, schema, benchmark, demo
+* `./coupon-service/setup_local.sh` starts PostgreSQL + Redis, creates the tables from `db/schema.sql`, builds and starts the API and UI, seeds the 5 demo coupons and 30 days of history, and creates the admin (prompts for a password; or pass `ADMIN_USERNAME` / `ADMIN_PASSWORD`).
+* `db/schema.sql` is the full schema (10 tables, indexes, the unique `one_coupon_per_order` index). The app also creates missing tables on start-up.
+* `docker compose exec -T coupon-service python -m scripts.benchmark > coupon-service/PERFORMANCE_REPORT.md` runs the latency / throughput / concurrency-correctness benchmark (it cleans up after itself). Latest results are in `PERFORMANCE_REPORT.md`.
+* `WEB_CONCURRENCY` sets the number of uvicorn worker processes (compose default 4; the single-image Dockerfile defaults to 1 for small hosts; `DB_POOL_SIZE` is per worker).
+* `DEMO_SCRIPT.md` is the run sheet for the client video.

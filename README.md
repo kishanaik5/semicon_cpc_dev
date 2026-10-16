@@ -36,6 +36,9 @@ docker compose exec coupon-service python -m scripts.create_admin --username <na
 
 Reset to a clean demo at any time: `./coupon-service/reset_demo.sh` (macOS / Linux / Git Bash) or `.\coupon-service\reset_demo.ps1` (PowerShell).
 
+## One command (macOS / Linux / Git Bash)
+`./coupon-service/setup_local.sh` creates the tables, seeds the demo data and starts everything. Benchmark: `docker compose exec -T coupon-service python -m scripts.benchmark`. Video run sheet: [coupon-service/DEMO_SCRIPT.md](coupon-service/DEMO_SCRIPT.md).
+
 ## Deploy
 One Docker image serves the API and the UI. Step-by-step Railway guide: [RAILWAY.md](RAILWAY.md).
 
